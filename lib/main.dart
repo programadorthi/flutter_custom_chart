@@ -68,7 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
               width: double.infinity,
               child: new CustomPaint(
                 painter: ProductsChart(
-                  currentValue: this.currentValue.toInt(),
+                  initialValue: this.currentValue.toInt(),
                   gradientColors: [
                     Color.fromARGB(255, 237, 49, 37),
                     Color.fromARGB(255, 251, 175, 64),

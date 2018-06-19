@@ -4,67 +4,97 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 class ProductsChart extends CustomPainter {
-
   final int currentValue;
   final List<Color> gradientColors;
+  final int initialValue;
   final Color labelColor;
+  final ui.TextStyle maxLabelStyle;
   final int maxValue;
+  final ui.TextStyle minLabelStyle;
   final int minValue;
+  final Offset origin;
   final Color pointerColor;
+  final Paint pointerPaint;
   final Color smallerArcColor;
+  final ui.TextStyle topLabelStyle;
 
-  ProductsChart({
-    this.currentValue, 
-    this.gradientColors,
-    this.labelColor,
-    this.maxValue, 
-    this.minValue,
-    this.pointerColor = Colors.black,
-    this.smallerArcColor = Colors.black
-  }) : assert(minValue >= 0),
-       assert(maxValue > 0),
-       assert(minValue < maxValue),
-       assert(currentValue >= minValue),
-       assert(currentValue <= maxValue),
-       assert(gradientColors != null),
-       assert(labelColor != null),
-       assert(pointerColor != null),
-       assert(smallerArcColor != null);
+  Paint smallerArcPaint;
+
+  ProductsChart(
+      {this.gradientColors,
+      this.initialValue = 0,
+      this.labelColor,
+      this.maxValue,
+      this.minValue = 0,
+      this.pointerColor = Colors.black,
+      this.smallerArcColor = Colors.black})
+      : assert(minValue >= 0 && maxValue > 0),
+        assert(minValue < maxValue),
+        assert(initialValue >= minValue && initialValue <= maxValue),
+        assert(gradientColors != null),
+        assert(labelColor != null),
+        assert(pointerColor != null),
+        assert(smallerArcColor != null),
+        currentValue = initialValue > maxValue ? maxValue : initialValue,
+        maxLabelStyle = new ui.TextStyle(
+          color: labelColor,
+          fontWeight: FontWeight.w800,
+        ),
+        minLabelStyle = new ui.TextStyle(
+          color: labelColor,
+        ),
+        origin = Offset.zero,
+        pointerPaint = new Paint()..color = pointerColor,
+        smallerArcPaint = new Paint()
+          ..color = smallerArcColor
+          ..strokeCap = StrokeCap.butt
+          ..strokeWidth = 4.0
+          ..style = PaintingStyle.stroke,
+        topLabelStyle = new ui.TextStyle(
+          color: labelColor,
+          fontWeight: FontWeight.w500,
+        );
 
   @override
   void paint(Canvas canvas, Size size) {
-
     // Current value and angle
-    final int maxTotal       = currentValue > maxValue ? maxValue : currentValue;
-    final double angle       = (180 * maxTotal) / maxValue;
-    final double cx          = size.width * 0.5;
-    final double cy          = size.height;
-    final Offset origin      = _getOffset(0.0, 0.0);
+    final double angle = (180 * currentValue) / maxValue;
+    final double cx = size.width * 0.5;
+    final double cy = size.height;
     final double labelRadius = cx * 0.8;
 
     // Set the origin to draw
     canvas.translate(cx, cy);
 
     // Black Arc
-    final double blackArcRadius = _smallerArc(cx, origin, canvas);
+    final double blackArcRadius = _drawSmallerArc(cx, canvas);
 
     // Centered label
-    _centeredLabel(maxTotal, 25.0, blackArcRadius, labelColor, origin, canvas);
+    _drawCurrentValueLabel(25.0, blackArcRadius, canvas);
 
     // Progress Arc
-    _progressArc(cx, origin, angle, canvas);
+    _drawProgressArc(cx, angle, canvas);
 
     // Gradient Arc
-    final double gradientArcRadius = _gradientArc(cx, origin, canvas);
+    final double gradientArcRadius = _drawGradientArc(cx, canvas);
 
     // Triangle pointer
-    _progressPointerPath(angle, gradientArcRadius, blackArcRadius, canvas);
+    _drawTriangleProgressPointer(
+        angle, gradientArcRadius, blackArcRadius, canvas);
 
     // Draw left label
-    _drawMinLabel(labelRadius, canvas,);
-    _drawTopLabel(labelRadius, canvas,);
-    _drawRightLabel(labelRadius, canvas,);
-
+    _drawMinLabel(
+      labelRadius,
+      canvas,
+    );
+    _drawTopLabel(
+      labelRadius,
+      canvas,
+    );
+    _drawRightLabel(
+      labelRadius,
+      canvas,
+    );
   }
 
   @override
@@ -87,70 +117,53 @@ class ProductsChart extends CustomPainter {
     );
   }
 
-  void _centeredLabel(
-    int value, 
-    double fontSize, 
-    double blackArcRadius, 
-    Color textColor, 
-    ui.Offset origin, 
+  void _drawCurrentValueLabel(
+    double fontSize,
+    double blackArcRadius,
     ui.Canvas canvas,
   ) {
-
     final ui.ParagraphBuilder paragraphBuilder = new ui.ParagraphBuilder(
       new ui.ParagraphStyle(
-        fontSize: fontSize,
-        textAlign: TextAlign.center,
-        textDirection: ui.TextDirection.ltr
-      ),
+          fontSize: fontSize,
+          textAlign: TextAlign.center,
+          textDirection: ui.TextDirection.ltr),
     )
       ..pushStyle(new ui.TextStyle(
-        color: textColor,
+        color: this.labelColor,
         fontWeight: FontWeight.w500,
       ))
-      ..addText(value.toString());
-    
+      ..addText(this.currentValue.toString());
+
     final ui.Paragraph paragraph = paragraphBuilder.build()
       ..layout(new ui.ParagraphConstraints(width: 80.0));
 
     if (paragraph.height > blackArcRadius) {
-      _centeredLabel(
-        value,
-        fontSize - 5.0,
-        blackArcRadius, 
-        textColor, 
-        origin, 
-        canvas,
-      );
+      _drawCurrentValueLabel(fontSize - 5.0, blackArcRadius, canvas);
       return;
     }
-    
-    final double dxParagraph = origin.dx - paragraph.width * 0.5;
-    final double dyParagraph = origin.dy - paragraph.height;
+
+    final double dxParagraph = this.origin.dx - paragraph.width * 0.5;
+    final double dyParagraph = this.origin.dy - paragraph.height;
     final Offset offsetParagraph = new Offset(dxParagraph, dyParagraph);
     canvas.drawParagraph(paragraph, offsetParagraph);
   }
 
-  double _smallerArc(double cx, ui.Offset origin, ui.Canvas canvas) {
+  double _drawSmallerArc(double cx, ui.Canvas canvas) {
     final double blackArcRadius = cx * 0.5;
     final Rect blackArcRect = Rect.fromCircle(
-      center: origin,
+      center: this.origin,
       radius: blackArcRadius,
     );
-    final Paint blackArcPaint = new Paint()
-      ..color = this.smallerArcColor
-      ..strokeCap = StrokeCap.butt
-      ..strokeWidth = cx * 0.02
-      ..style = PaintingStyle.stroke;
-    
-    canvas.drawArc(blackArcRect, math.pi, math.pi, false, blackArcPaint);
+
+    canvas.drawArc(blackArcRect, math.pi, math.pi, false, this.smallerArcPaint);
 
     return blackArcRadius;
   }
 
-  double _gradientArc(double cx, ui.Offset origin, ui.Canvas canvas) {
+  double _drawGradientArc(double cx, ui.Canvas canvas) {
     final double gradientArcRadius = cx * 0.7;
     final Rect gradientArcRect = Rect.fromCircle(
-      center: origin,
+      center: this.origin,
       radius: gradientArcRadius,
     );
     final Paint gradientArcPaint = new Paint()
@@ -158,63 +171,65 @@ class ProductsChart extends CustomPainter {
       ..strokeCap = StrokeCap.butt
       ..strokeWidth = gradientArcRadius * 0.1
       ..style = PaintingStyle.stroke;
-    
+
     canvas.drawArc(gradientArcRect, math.pi, math.pi, false, gradientArcPaint);
 
     return gradientArcRadius;
   }
 
-  void _progressArc(double cx, ui.Offset origin, double angle, ui.Canvas canvas) {
+  void _drawProgressArc(double cx, double angle, ui.Canvas canvas) {
     final double progressArcRadius = cx * 0.6;
     final Rect progressArcRect = Rect.fromCircle(
-      center: origin,
+      center: this.origin,
       radius: progressArcRadius,
     );
     final Paint progressArcPaint = new Paint()
       ..shader = _generateGradient(progressArcRadius)
       ..strokeWidth = cx * 0.19
       ..style = PaintingStyle.stroke;
-    
+
     final double progressAngle = math.pi * angle / 180;
-    canvas.drawArc(progressArcRect, math.pi, progressAngle, false, progressArcPaint);
+    canvas.drawArc(
+        progressArcRect, math.pi, progressAngle, false, progressArcPaint);
   }
 
-  void _progressPointerPath(double angle, double gradientArcRadius, double blackArcRadius, ui.Canvas canvas) {
+  void _drawTriangleProgressPointer(double angle, double gradientArcRadius,
+      double blackArcRadius, ui.Canvas canvas) {
     double rightIncrease = 5.0;
     double leftIncrease = 5.0;
-    
-    if (angle > 175) {
+
+    if (angle > 175.0) {
       rightIncrease = 180.0 - angle;
-    } else if (angle < 5) {
+    } else if (angle < 5.0) {
       leftIncrease = angle;
     }
-    
-    final Offset offsetTriangleTop   = _getOffset(angle, gradientArcRadius - (gradientArcRadius * 0.05));
-    final Offset offsetTriangleRight = _getOffset(angle + rightIncrease, blackArcRadius);
-    final Offset offsetTriangleLeft  = _getOffset(angle - leftIncrease, blackArcRadius);
-    
-    final Paint black = new Paint()
-      ..color = this.pointerColor;
-    
+
+    final Offset offsetTriangleTop =
+        _getOffset(angle, gradientArcRadius - (gradientArcRadius * 0.05));
+    final Offset offsetTriangleRight =
+        _getOffset(angle + rightIncrease, blackArcRadius);
+    final Offset offsetTriangleLeft =
+        _getOffset(angle - leftIncrease, blackArcRadius);
+
     final Path path = new Path()
       ..moveTo(offsetTriangleTop.dx, offsetTriangleTop.dy)
       ..lineTo(offsetTriangleRight.dx, offsetTriangleRight.dy)
       ..lineTo(offsetTriangleLeft.dx, offsetTriangleLeft.dy)
       ..close();
-    
-    canvas.drawPath(path, black);
+
+    canvas.drawPath(path, pointerPaint);
   }
 
   ui.Paragraph _getParagraph(String text, ui.TextStyle style) {
     final ui.ParagraphBuilder paragraphBuilder = new ui.ParagraphBuilder(
       new ui.ParagraphStyle(
-        textAlign: TextAlign.center,
-        textDirection: ui.TextDirection.ltr
+          textAlign: TextAlign.center,
+          textDirection: ui.TextDirection.ltr
       ),
     )
       ..pushStyle(style)
       ..addText(text);
-    
+
     final ui.Paragraph paragraph = paragraphBuilder.build()
       ..layout(new ui.ParagraphConstraints(width: 40.0));
 
@@ -222,32 +237,23 @@ class ProductsChart extends CustomPainter {
   }
 
   void _drawMinLabel(double labelRadius, Canvas canvas) {
+    final ui.Paragraph paragraph =
+        _getParagraph(this.minValue.toString(), this.minLabelStyle);
 
-    final ui.TextStyle minLabelStyle = new ui.TextStyle(
-      color: this.labelColor,
-    );
-
-    final ui.Paragraph paragraph = _getParagraph(this.minValue.toString(), minLabelStyle);
-
-    final Offset offsetMinLabel = _getOffset(0.0, labelRadius);
+    final Offset offsetMinLabel = _getOffset(this.origin.dx, labelRadius);
 
     final double dxParagraph = offsetMinLabel.dx - paragraph.width * 0.6;
     final double dyParagraph = offsetMinLabel.dy - paragraph.height;
     final Offset offsetParagraph = new Offset(dxParagraph, dyParagraph);
 
     canvas.drawParagraph(paragraph, offsetParagraph);
-
   }
 
   void _drawTopLabel(double labelRadius, Canvas canvas) {
-
-    final ui.TextStyle label200Style = new ui.TextStyle(
-      color: this.labelColor,
-      fontWeight: FontWeight.w500,
-    );
-
-    final String topLabelText = ((this.maxValue + this.minValue) * 0.5).toStringAsFixed(0);
-    final ui.Paragraph paragraph = _getParagraph(topLabelText, label200Style);
+    final String topLabelText =
+        ((this.maxValue + this.minValue) * 0.5).toStringAsFixed(0);
+    final ui.Paragraph paragraph =
+        _getParagraph(topLabelText, this.topLabelStyle);
 
     final Offset offsetMinLabel = _getOffset(90.0, labelRadius);
 
@@ -256,17 +262,11 @@ class ProductsChart extends CustomPainter {
     final Offset offsetParagraph = new Offset(dxParagraph, dyParagraph);
 
     canvas.drawParagraph(paragraph, offsetParagraph);
-
   }
 
   void _drawRightLabel(double labelRadius, Canvas canvas) {
-
-    final ui.TextStyle maxLabelStyle = new ui.TextStyle(
-      color: this.labelColor,
-      fontWeight: FontWeight.w800,
-    );
-
-    final ui.Paragraph paragraph = _getParagraph(this.maxValue.toString(), maxLabelStyle);
+    final ui.Paragraph paragraph =
+        _getParagraph(this.maxValue.toString(), this.maxLabelStyle);
 
     final Offset offsetMaxLabel = _getOffset(180.0, labelRadius);
 
@@ -275,7 +275,5 @@ class ProductsChart extends CustomPainter {
     final Offset offsetParagraph = new Offset(dxParagraph, dyParagraph);
 
     canvas.drawParagraph(paragraph, offsetParagraph);
-
   }
-
 }
