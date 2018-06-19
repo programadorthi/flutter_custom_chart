@@ -16,9 +16,8 @@ class ProductsChart extends CustomPainter {
   final Color pointerColor;
   final Paint pointerPaint;
   final Color smallerArcColor;
+  final Paint smallerArcPaint;
   final ui.TextStyle topLabelStyle;
-
-  Paint smallerArcPaint;
 
   ProductsChart(
       {this.gradientColors,

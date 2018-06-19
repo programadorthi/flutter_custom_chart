@@ -29,7 +29,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   double currentValue = 148.0;
-  double maxValue = 400.0;
+  double maxValue = 1733.0;
   double minValue = 0.0;
 
   void changeCurrentValue(double newValue) {
